@@ -10,9 +10,9 @@ export default class App {
 
     this.colors = {
       bg: '#000000',
-      mesh: '#92c4ff',
+      mesh: '#ffffff',
       rect: '#004f24',
-      ambient: '#293442',
+      ambient: '#225b60',
       spot: '#ffffff'
     };
 
@@ -28,9 +28,7 @@ export default class App {
     this.height = window.innerHeight;
     this.mouse3D = new THREE.Vector2();
     this.repulsion = 1;
-    this.geometries = [
-      new ClouDeParis()
-    ];
+    this.geometry = new ClouDeParis();
 
     const gui = this.gui.addFolder('Background');
 
@@ -99,9 +97,11 @@ export default class App {
     this.spotLight.castShadow = true;
     this.spotLight.shadow.mapSize.width = 2048;
     this.spotLight.shadow.mapSize.height = 2048;
+    this.spotLight.shadow.camera.near = this.camera.near;
+    this.spotLight.shadow.camera.far = this.camera.far;
     this.spotLight.angle = radians(20);
-    this.spotLight.penumbra = 1;
-    this.spotLight.intensity = 1;
+    this.spotLight.penumbra = 0.5;
+    this.spotLight.intensity = 2;
     this.spotLight.decay = 0;
     this.spotLight.distance = 1000;
     this.spotLight.target.position.set(0, 0, 0)
@@ -139,10 +139,6 @@ export default class App {
     return pointLight;
   }
 
-  getRandomGeometry() {
-    return this.geometries[Math.floor(Math.random() * Math.floor(this.geometries.length))];
-  }
-
   createGrid() {
     this.groupMesh = new THREE.Object3D();
 
@@ -171,17 +167,16 @@ export default class App {
       this.meshPositions[row] = [];
 
       for (let col = 0; col < this.grid.cols; col++) {
-        const geometry = this.getRandomGeometry();
-        const mesh = this.getMesh(geometry.geom, material);
+        const mesh = this.getMesh(this.geometry.geom, material);
 
         const refPos = meshPos(row, col, this.gutter.size);
 
         mesh.geometry.computeBoundingBox();
         mesh.geometry.center();
         mesh.position.set(refPos);
-        mesh.rotation.x = geometry.rotationX;
-        mesh.rotation.y = geometry.rotationY;
-        mesh.rotation.z = geometry.rotationZ;
+        mesh.rotation.x = this.geometry.rotationX;
+        mesh.rotation.y = this.geometry.rotationY;
+        mesh.rotation.z = this.geometry.rotationZ;
 
         mesh.initialRotation = {
           x: mesh.rotation.x,
@@ -311,7 +306,6 @@ export default class App {
           const factor = THREE.MathUtils.clamp(1 - (Math.abs(mouseDistance) / 40), 0, 1);
 
           const offset = (1 - factor);
-          const scale = 1 + 0.4 * factor;
 
           const pos = {
             x: refPos.x - dir.x * offset,
@@ -327,9 +321,9 @@ export default class App {
           TweenMax.to(mesh.position, this.smoothTime, pos);
 
           TweenMax.to(mesh.scale, this.smoothTime, {
-            x: scale,
-            y: scale,
-            z: scale,
+            x: 1 + 0.4 * factor,
+            y: 1 + 2 * factor,
+            z: 1 + 0.4 * factor,
           });
         }
       }
