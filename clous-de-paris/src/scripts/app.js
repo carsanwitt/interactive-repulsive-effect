@@ -1,17 +1,29 @@
 import 'styles/index.scss';
-import { radians, map, distance, hexToRgbTreeJs } from './helpers';
+import {radians, distance, distanceSqrd, hexToRgbTreeJs, meshPos} from './helpers';
 import ClouDeParis from "./elements/clou-de.paris";
 
 export default class App {
   setup() {
     this.gui = new dat.GUI();
 
+    this.ortho = true;
+
+    this.colors = {
+      bg: '#000000',
+      mesh: '#92c4ff',
+      rect: '#004f24',
+      ambient: '#293442',
+      spot: '#ffffff'
+    };
+
+    this.smoothTime = 0.8;
+
     this.raycaster = new THREE.Raycaster();
 
-    this.backgroundColor = '#1b1b1b';
-    this.gutter = { size: 0.2 };
+    this.gutter = {size: -0.1};
     this.meshes = [];
-    this.grid = { cols: 80, rows: 45 };
+    this.meshPositions = [];
+    this.grid = {cols: 120, rows: 60};
     this.width = window.innerWidth;
     this.height = window.innerHeight;
     this.mouse3D = new THREE.Vector2();
@@ -22,25 +34,28 @@ export default class App {
 
     const gui = this.gui.addFolder('Background');
 
-    gui.addColor(this, 'backgroundColor').onChange((color) => {
+    gui.addColor(this.colors, 'bg').onChange((color) => {
       document.body.style.backgroundColor = color;
+      this.renderer.setClearColor(color);
     });
 
-    window.addEventListener('resize', this.onResize.bind(this), { passive: true });
+    window.addEventListener('resize', this.onResize.bind(this), {passive: true});
 
-    window.addEventListener('mousemove', this.onMouseMove.bind(this), { passive: true });
+    window.addEventListener('mousemove', this.onMouseMove.bind(this), {passive: true});
 
-    this.onMouseMove({ clientX: 0, clientY: 0 });
+    this.onMouseMove({clientX: 0, clientY: 0});
   }
 
   createScene() {
     this.scene = new THREE.Scene();
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this.renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
     this.renderer.setSize(window.innerWidth, window.innerHeight);
 
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    this.renderer.setClearColor(this.colors.bg);
 
     document.body.appendChild(this.renderer.domElement);
   }
@@ -49,44 +64,60 @@ export default class App {
     const width = window.innerWidth;
     const height = window.innerHeight;
 
-    this.camera = new THREE.PerspectiveCamera(45, width / height, 1);
+    this.camera = this.ortho
+      ? new THREE.OrthographicCamera(width / -2, width / 2, height / 2, height / -2, 1, 1000)
+      : this.camera = new THREE.PerspectiveCamera(45, width / height, 1);
     this.camera.position.set(0, 30, 0);
+    this.camera.zoom = this.ortho ? 20 : 1;
 
     this.scene.add(this.camera);
   }
 
   addAmbientLight() {
-    const obj = { color: '#fadeb5' };
-    const light = new THREE.AmbientLight(obj.color, 1);
+    const l1 = new THREE.AmbientLight(this.colors.ambient, 1);
+    const l2 = this.createPointLight(this.colors.ambient, {x: -40, y: 10, z: -30});
+    const l3 = this.createPointLight(this.colors.ambient, {x: 40, y: 10, z: 30});
 
-    this.scene.add(light);
+    this.scene.add(l1);
+    this.scene.add(l2);
+    this.scene.add(l3);
+
 
     const gui = this.gui.addFolder('Ambient Light');
 
-    gui.addColor(obj, 'color').onChange((color) => {
-      light.color = hexToRgbTreeJs(color);
+    gui.addColor(this.colors, 'ambient').onChange((color) => {
+      l1.color = hexToRgbTreeJs(color);
+      l2.color = hexToRgbTreeJs(color);
+      l3.color = hexToRgbTreeJs(color);
     });
   }
 
   addSpotLight() {
-    const obj = { color: '#ffffff' };
-    const light = new THREE.SpotLight(obj.color, 1, 1000);
+    this.spotLight = new THREE.SpotLight(this.colors.spot);
 
-    light.position.set(0, 27, 0);
-    light.castShadow = true;
+    this.spotLight.position.set(0, 27, 0);
+    this.spotLight.castShadow = true;
+    this.spotLight.shadow.mapSize.width = 2048;
+    this.spotLight.shadow.mapSize.height = 2048;
+    this.spotLight.angle = radians(20);
+    this.spotLight.penumbra = 1;
+    this.spotLight.intensity = 1;
+    this.spotLight.decay = 0;
+    this.spotLight.distance = 1000;
+    this.spotLight.target.position.set(0, 0, 0)
 
-    this.scene.add(light);
+    this.scene.add(this.spotLight);
+    this.scene.add(this.spotLight.target);
 
     const gui = this.gui.addFolder('Spot Light');
 
-    gui.addColor(obj, 'color').onChange((color) => {
-      light.color = hexToRgbTreeJs(color);
+    gui.addColor(this.colors, 'spot').onChange((color) => {
+      this.spotLight.color = hexToRgbTreeJs(color);
     });
   }
 
   addRectLight() {
-    const obj = { color: '#dac28e' };
-    const rectLight = new THREE.RectAreaLight(obj.color, 1, 2000, 2000);
+    const rectLight = new THREE.RectAreaLight(this.colors.rect, 1, 2000, 2000);
 
     rectLight.position.set(5, 50, 50);
     rectLight.lookAt(0, 0, 0);
@@ -95,16 +126,17 @@ export default class App {
 
     const gui = this.gui.addFolder('Rect Light');
 
-    gui.addColor(obj, 'color').onChange((color) => {
+    gui.addColor(this.colors, 'rect').onChange((color) => {
       rectLight.color = hexToRgbTreeJs(color);
     });
   }
 
-  addPointLight(color, position) {
+  createPointLight(color, position) {
     const pointLight = new THREE.PointLight(color, 1, 1000, 1);
     pointLight.position.set(position.x, position.y, position.z);
+    pointLight.distance = 1000;
 
-    this.scene.add(pointLight);
+    return pointLight;
   }
 
   getRandomGeometry() {
@@ -115,10 +147,10 @@ export default class App {
     this.groupMesh = new THREE.Object3D();
 
     const meshParams = {
-      color: '#d2c9b7',
-      metalness: .58,
-      emissive: '#000000',
-      roughness: .18,
+      color: this.colors.mesh,
+      metalness: .7,
+      emissive: '#000',
+      roughness: .2,
     };
 
     const material = new THREE.MeshPhysicalMaterial(meshParams);
@@ -136,12 +168,17 @@ export default class App {
 
     for (let row = 0; row < this.grid.rows; row++) {
       this.meshes[row] = [];
+      this.meshPositions[row] = [];
 
       for (let col = 0; col < this.grid.cols; col++) {
         const geometry = this.getRandomGeometry();
         const mesh = this.getMesh(geometry.geom, material);
 
-        mesh.position.set(col + (col * this.gutter.size), 0, row + (row * this.gutter.size));
+        const refPos = meshPos(row, col, this.gutter.size);
+
+        mesh.geometry.computeBoundingBox();
+        mesh.geometry.center();
+        mesh.position.set(refPos);
         mesh.rotation.x = geometry.rotationX;
         mesh.rotation.y = geometry.rotationY;
         mesh.rotation.z = geometry.rotationZ;
@@ -154,6 +191,7 @@ export default class App {
 
         this.groupMesh.add(mesh);
         this.meshes[row][col] = mesh;
+        this.meshPositions[row][col] = refPos;
       }
     }
 
@@ -180,11 +218,11 @@ export default class App {
 
   addFloor() {
     const geometry = new THREE.PlaneGeometry(2000, 2000);
-    const material = new THREE.ShadowMaterial({ opacity: .3 });
+    const material = new THREE.ShadowMaterial({opacity: .3});
 
     this.floor = new THREE.Mesh(geometry, material);
     this.floor.position.y = 0;
-    this.floor.rotateX(- Math.PI / 2);
+    this.floor.rotateX(-Math.PI / 2);
     this.floor.receiveShadow = true;
 
     this.scene.add(this.floor);
@@ -211,15 +249,9 @@ export default class App {
     this.addFloor();
 
     this.animate();
-
-    this.addPointLight(0xfff000, { x: 0, y: 10, z: -100 });
-
-    this.addPointLight(0xfff000, { x: 100, y: 10, z: 0 });
-
-    this.addPointLight(0x00ff00, { x: 20, y: 5, z: 20 });
   }
 
-  onMouseMove({ clientX, clientY }) {
+  onMouseMove({clientX, clientY}) {
     this.mouse3D.x = (clientX / this.width) * 2 - 1;
     this.mouse3D.y = -(clientY / this.height) * 2 + 1;
   }
@@ -239,37 +271,66 @@ export default class App {
     const intersects = this.raycaster.intersectObjects([this.floor]);
 
     if (intersects.length) {
-      const { x, z } = intersects[0].point;
+
+      const target = {
+        x: intersects[0].point.x,
+        y: 0,
+        z: intersects[0].point.z,
+      };
+
+      const light = {
+        x: intersects[0].point.x,
+        y: this.spotLight.position.y,
+        z: intersects[0].point.z,
+      };
+
+      TweenMax.to(this.spotLight.position, this.smoothTime, light);
+      TweenMax.to(this.spotLight.target.position, this.smoothTime, target);
+
+      let dir = new THREE.Vector3();
 
       for (let row = 0; row < this.grid.rows; row++) {
         for (let col = 0; col < this.grid.cols; col++) {
 
           const mesh = this.meshes[row][col];
+          const refPos = this.meshPositions[row][col];
+          const currentPos = {
+            x: refPos.x + this.groupMesh.position.x,
+            y: refPos.y,
+            z: refPos.z + this.groupMesh.position.z
+          };
 
-          const mouseDistance = distance(x, z,
-            mesh.position.x + this.groupMesh.position.x,
-            mesh.position.z + this.groupMesh.position.z);
+          dir.subVectors(currentPos, target).normalize();
+          const mouseDistance = distance(
+            target.x,
+            target.z,
+            currentPos.x,
+            currentPos.z);
 
-          const y = map(mouseDistance, 6, 0, 0, 10);
-          TweenMax.to(mesh.position, .2, { y: y < 1 ? 1 : y });
+          // const factor = 1 / (1 + Math.abs(mouseDistance));
+          const factor = THREE.MathUtils.clamp(1 - (Math.abs(mouseDistance) / 40), 0, 1);
 
-          const scaleFactor = mesh.position.y / 4;
-          const scale = scaleFactor < 1 ? 1 : scaleFactor;
+          const offset = (1 - factor);
+          const scale = 1 + 0.4 * factor;
 
-          TweenMax.to(mesh.scale, .4, {
-            ease: Expo.easeOut,
+          const pos = {
+            x: refPos.x - dir.x * offset,
+            y: refPos.y + factor,
+            z: refPos.z - dir.z * offset
+          };
+
+          /*
+          mesh.position.set(pos);
+          mesh.scale.set(scale, scale, scale);
+          */
+
+          TweenMax.to(mesh.position, this.smoothTime, pos);
+
+          TweenMax.to(mesh.scale, this.smoothTime, {
             x: scale,
             y: scale,
             z: scale,
           });
-
-          TweenMax.to(mesh.rotation, .5, {
-            ease: Expo.easeOut,
-            x: map(mesh.position.y, -1, 1, radians(10), mesh.initialRotation.x),
-            z: map(mesh.position.y, -1, 1, radians(-10), mesh.initialRotation.z),
-            y: map(mesh.position.y, -1, 1, radians(10), mesh.initialRotation.y),
-          });
-
         }
       }
     }

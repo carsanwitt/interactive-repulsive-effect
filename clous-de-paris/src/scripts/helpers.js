@@ -1,9 +1,14 @@
 const radians = (degrees) => {
-  return degrees * Math.PI / 180;
+  return THREE.MathUtils.degToRad(degrees);
+  //return degrees * Math.PI / 180;
 }
 
 const distance = (x1, y1, x2, y2) => {
-  return Math.sqrt(Math.pow((x1 - x2), 2) + Math.pow((y1 - y2), 2));
+  return distanceSqrd(x1, y1, x2, y2);
+}
+
+const distanceSqrd = (x1, y1, x2, y2) => {
+  return Math.pow((x1 - x2), 2) + Math.pow((y1 - y2), 2);
 }
 
 const map = (value, start1, stop1, start2, stop2) => {
@@ -20,4 +25,8 @@ const hexToRgbTreeJs = (hex) => {
   } : null;
 }
 
-export { radians, distance, map, hexToRgbTreeJs };
+const meshPos = (row, col, gutter) => {
+  return {x: col + (col * gutter), y: 0, z: row + (row * gutter)};
+}
+
+export {radians, distance, distanceSqrd, map, hexToRgbTreeJs, meshPos};
