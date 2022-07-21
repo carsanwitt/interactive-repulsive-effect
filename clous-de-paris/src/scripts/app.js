@@ -17,6 +17,7 @@ export default class App {
     };
 
     this.smoothTime = 0.8;
+    this.effectDistance = 100;
 
     this.raycaster = new THREE.Raycaster();
 
@@ -114,6 +115,10 @@ export default class App {
     gui.addColor(this.colors, 'spot').onChange((color) => {
       this.spotLight.color = hexToRgbTreeJs(color);
     });
+
+    gui.add(this.spotLight, 'angle', 1, 90, 1).onChange((angle) => {
+      this.spotLight.angle = radians(angle);
+    });
   }
 
   addRectLight() {
@@ -196,6 +201,16 @@ export default class App {
     this.groupMesh.position.set(-centerX, 0, -centerZ);
 
     this.scene.add(this.groupMesh);
+
+
+    const gui2 = this.gui.addFolder('Magnetic Effect');
+    gui2.add(this, 'effectDistance', 10, 200, 1).onChange((distance) => {
+      this.effectDistance = distance;
+    });
+
+    gui2.add(this, 'smoothTime', 0, 2, 0.1).onChange((time) => {
+      this.smoothTime = time;
+    });
   }
 
   getMesh(geometry, material) {
@@ -303,7 +318,7 @@ export default class App {
             currentPos.z);
 
           // const factor = 1 / (1 + Math.abs(mouseDistance));
-          const factor = THREE.MathUtils.clamp(1 - (Math.abs(mouseDistance) / 40), 0, 1);
+          const factor = THREE.MathUtils.clamp(1 - (Math.abs(mouseDistance) / this.effectDistance), 0, 1);
 
           const offset = (1 - factor);
 
