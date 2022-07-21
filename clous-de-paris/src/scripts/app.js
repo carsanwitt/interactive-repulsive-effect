@@ -1,8 +1,6 @@
 import 'styles/index.scss';
-import Cone from './elements/cone';
-import Box from './elements/box';
-import Torus from './elements/torus';
 import { radians, map, distance, hexToRgbTreeJs } from './helpers';
+import ClouDeParis from "./elements/clou-de.paris";
 
 export default class App {
   setup() {
@@ -11,15 +9,15 @@ export default class App {
     this.raycaster = new THREE.Raycaster();
 
     this.backgroundColor = '#1b1b1b';
-    this.gutter = { size: 0.02 };
+    this.gutter = { size: 0.2 };
     this.meshes = [];
-    this.grid = { cols: 100, rows: 40 };
+    this.grid = { cols: 80, rows: 45 };
     this.width = window.innerWidth;
     this.height = window.innerHeight;
     this.mouse3D = new THREE.Vector2();
     this.repulsion = 1;
     this.geometries = [
-      new Box()
+      new ClouDeParis()
     ];
 
     const gui = this.gui.addFolder('Background');
