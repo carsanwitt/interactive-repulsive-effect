@@ -1,4 +1,15 @@
-# Interactive Repulsion Effect with Three.js
+# A fork of: Interactive Repulsion Effect with Three.js
+
+### Clous de Paris
+
+A new animation built by modifying the second demo.
+Here we recreate the clous de paris patterns commonly seen in watches and other precision metal work, with a magentic
+repulsion effect and an orthographic camera.
+
+---
+
+# Original Readme
+
 
 A tutorial on how to recreate the interactive repulsion effect of grid items seen in BestServedBold's Dribbble shot ["Holographic-Interactions"](https://dribbble.com/shots/5515695-Holographic-Interactions). By Ion D. Filho.
 
